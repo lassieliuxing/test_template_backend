@@ -1,5 +1,6 @@
 from flask import Flask, request
 from flask_restx import Resource, Api, Namespace, fields
+from werkzeug.datastructures import FileStorage
 
 from backend.log_util import logger
 
@@ -45,7 +46,6 @@ class Demo(Resource):
     get_parser=api.parser()
     # 通过parser对象添加成测试数据  location的值是在request.arges中使用
     get_parser.add_argument('id',type=int,location="args")
-
     @hello_ns.expect(get_parser)
     # restful风格的get方法
     def get(self):
@@ -59,6 +59,28 @@ class Demo(Resource):
     def post(self):
         logger.info(f"request.json==={request.json}")
         return {"code":0,"msg":"post success"}
+
+    post_file=api.parser()
+    post_file.add_argument("file",type=FileStorage,location="files")
+    @hello_ns.expect(post_file)
+    def post(self):
+        logger.info(f"request.json==={request.files}")
+        return {"code": 0, "msg": "post success"}
+
+    post_file = api.parser()
+    post_file.add_argument("param1", help="username",type=int, location="form")
+    post_file.add_argument("param2", help="password",type=str, location="form")
+    @hello_ns.expect(post_file)
+    def post(self):
+        logger.info(f"request.json==={request.form}")
+        return {"code": 0, "msg": "post success"}
+
+    post_enu = api.parser()
+    post_enu.add_argument("choice", choices=("one","two"), location="args")
+    @hello_ns.expect(post_enu)
+    def post(self):
+        logger.info(f"request.json==={request.args}")
+        return {"code": 0, "msg": "post success"}
     def put(self):
         return {"code":0,"msg":"put  success"}
     def delete(self):
