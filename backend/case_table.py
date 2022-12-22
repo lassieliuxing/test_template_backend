@@ -1,4 +1,5 @@
 from flask import Flask, request
+from flask_cors import CORS
 from flask_restx import Resource, Api, Namespace
 from flask_sqlalchemy import SQLAlchemy
 import yaml
@@ -6,6 +7,7 @@ from sqlalchemy import *
 from backend.log_util import logger
 
 app = Flask(__name__)
+CORS(app,supports_credentials=True)
 api = Api(app)
 # 用例的命名空间
 case_ns = Namespace("case",description="用例管理")
@@ -33,11 +35,27 @@ class TestCase(db.Model):
     remark = db.Column(String(120))
 @case_ns.route("")
 class TestCaseServer(Resource):
+    get_parser=api.parser()
+    get_parser.add_argument("id",type=int,location="args")
+    @case_ns.expect(get_parser)
     def get(self):
         """测试用例的查找"""
-        logger.info("get method")
-        return {"code":0,"msg":"get success"}
-
+        case_id=request.args.get("id")
+        logger.info(f"接收到的参数<===={case_id}")
+        if case_id:
+            case_data=TestCase.query.filter_by(id=case_id).first()
+            if case_data:
+                datas=[{"id":case_data.id,
+                        "case_title":case_data.case_title,
+                        "remark":case_data.remark}]
+            else:
+                datas=[]
+        else:
+            case_datas=TestCase.query.all()
+            datas=[{"id":case_data.id,
+                        "case_title":case_data.case_title,
+                        "remark":case_data.remark}for case_data in case_datas]
+        return datas
     post_pareser=api.parser()
     post_pareser.add_argument("id",type=int,required=True,location="json")
     post_pareser.add_argument("case_title",type=str,required=True,location="json")
@@ -62,14 +80,44 @@ class TestCaseServer(Resource):
         else:
             return {"code":40001,"msg":"case is existes"}
 
+    put_pareser = api.parser()
+    put_pareser.add_argument("id", type=int, required=True, location="json")
+    put_pareser.add_argument("case_title", type=str, required=True, location="json")
+    put_pareser.add_argument("remark", type=str, required=True, location="json")
+    @case_ns.expect(put_pareser)
     def put(self):
         """测试用例的修改"""
-        logger.info("put method")
-        return {"code":0,"msg":"put success"}
+        case_data = request.json
+        logger.info(f"接收的参数<===={case_data}")
+        case_id=case_data.get("id")
+        exists = TestCase.query.filter_by(id=case_id).first()
+        logger.info(f"查询表结果：{exists}")
+        if exists:
+            case_data1={}
+            case_data1["case_title"]=case_data.get("case_title")
+            case_data1["remark"]=case_data.get("remark")
+            TestCase.query.filter_by(id=case_id).update(case_data1)
+            db.session.commit()
+            return {"code":0,"msg":f"case id{case_id} success change to{case_data1}"}
+        else:
+            return {"code":40002,"msg":"case is not exist"}
+    delete_parser=api.parser()
+    delete_parser.add_argument("id",type=int,required=True,location="json")
+    delete_parser.add_argument("case_title",type=str,required=True,location="json")
+    delete_parser.add_argument("remark",type=str,required=True,location="json")
+    @case_ns.expect(delete_parser)
     def delete(self):
         """测试用例的删除"""
-        logger.info("delete method")
-        return {"code":0,"msg":"delete success"}
+        case_data=request.json
+        case_id=case_data.get("id")
+        logger.info(f"接收的参数id<===={case_id}")
+        exists=TestCase.query.filter_by(id=case_id).first()
+        if exists:
+            TestCase.query.filter_by(id=case_id).delete()
+            db.session.commit()
+            return {"code":0,"msg":f"case id {case_id}success delete"}
+        else:
+            return {"code":40002,"msg":f"case {case_id} not exist"}
 api.add_namespace(case_ns,"/testcase")
 
 
